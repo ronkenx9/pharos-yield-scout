@@ -1,0 +1,38 @@
+# Pharos Yield Scout
+
+> Scan a Pharos wallet for idle capital and surface ranked yield opportunities.
+
+A Pharos agent Skill that reads a wallet, finds undeployed capital, and ranks available yield by APY — with honest data provenance.
+
+```
+BALANCE SCAN ──▶ IDLE CAPITAL ──▶ YIELD DISCOVERY ──▶ RANKED REPORT
+ native + ERC-20   undeployed $      DeFiLlama (live)    by source, APY, holdings
+```
+
+## What it does
+1. **Balance scan** — native PHR/ETH + top ERC-20 balances for an address.
+2. **Idle capital detection** — value sitting undeployed in the wallet.
+3. **Yield discovery** — live Pharos pools from DeFiLlama, filtered to held tokens.
+4. **Ranked report** — holdings, idle estimate, and top opportunities.
+
+## Data provenance (important)
+Pharos DeFi is not yet indexed on DeFiLlama, so when no live pools are returned the Skill surfaces a small set of **clearly-labelled simulated** reference points. Every opportunity carries `source: 'live' | 'simulated'`; simulated rows always rank below live data, render with a `(sim)` tag, and recommendations against them are flagged `[SIMULATED — verify before acting]`. Disable them entirely with `INCLUDE_SIMULATED_POOLS=false`. Live data is never presented as anything but live.
+
+## Quickstart
+```bash
+npm install
+cp .env.example .env        # PHAROS_RPC_URL (+ optional keys)
+npm run build
+
+npm run scout -- --wallet 0xYourWallet           # human report
+npm run scout -- --wallet 0xYourWallet --json     # agent-consumable JSON
+npm run mcp                                        # MCP server
+```
+
+## Network
+Pharos Atlantic testnet — chain id `688689`, RPC `https://atlantic.dplabs-internal.com`, explorer `https://atlantic.pharosscan.xyz`.
+
+## Composition (Phase 2)
+Pairs with [`pharos-agent-pay`](https://github.com/ronkenx9/pharos-agent-pay) to charge per scan, and [`pharos-identity-auditor`](https://github.com/ronkenx9/pharos-identity-auditor) to verify a counterparty before deploying capital.
+
+See [SKILL.md](./SKILL.md) for the full action reference. MIT.
