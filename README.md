@@ -11,9 +11,16 @@ BALANCE SCAN ──▶ IDLE CAPITAL ──▶ YIELD DISCOVERY ──▶ RANKED R
 
 ## What it does
 1. **Balance scan** — native PHR/ETH + top ERC-20 balances for an address.
-2. **Idle capital detection** — value sitting undeployed in the wallet.
+2. **Idle vs deployed split** — classifies each holding so "idle" means *truly undeployed*, not the whole wallet.
 3. **Yield discovery** — live Pharos pools from DeFiLlama, filtered to held tokens.
-4. **Ranked report** — holdings, idle estimate, and top opportunities.
+4. **Ranked report** — holdings, idle/deployed breakdown, and top opportunities.
+
+## Idle vs deployed (real, not assumed)
+The headline claim is "find *idle* capital", so the skill actually distinguishes it. Each token is classified as **idle** (free to put to work) or **deployed** (already in an LP / vault / lending / staked position) via:
+1. an explicit registry — `DEPLOYED_TOKEN_ADDRESSES` (comma-separated) plus built-ins, and
+2. conservative receipt-token symbol patterns (`LP`, `AMM`, `VAULT`, `STAKED`, `-V2`, `SLP`).
+
+Deployed holdings are **excluded** from idle capital and shown separately, and recommendations size against idle capital only.
 
 ## Data provenance (important)
 Pharos DeFi is not yet indexed on DeFiLlama, so when no live pools are returned the Skill surfaces a small set of **clearly-labelled simulated** reference points. Every opportunity carries `source: 'live' | 'simulated'`; simulated rows always rank below live data, render with a `(sim)` tag, and recommendations against them are flagged `[SIMULATED — verify before acting]`. Disable them entirely with `INCLUDE_SIMULATED_POOLS=false`. Live data is never presented as anything but live.

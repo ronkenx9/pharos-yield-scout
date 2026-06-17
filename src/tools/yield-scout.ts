@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { scanWalletBalances, type TokenBalance } from './balance-scan.js';
+import { classifyPosition } from './positions.js';
 
 export interface YieldOpportunity {
   protocol: string;
@@ -21,6 +22,8 @@ export interface YieldScoutReport {
   walletAddress: string;
   totalValueUsd: number;
   idleCapitalUsd: number;
+  /** Value already in yield positions (LP/vault/lending), excluded from idle. */
+  deployedCapitalUsd: number;
   topOpportunity?: YieldOpportunity;
   opportunities: YieldOpportunity[];
   balances: {
@@ -28,6 +31,8 @@ export interface YieldScoutReport {
     amount: string;
     usdValue: number;
     address: string;
+    /** True if this holding is an existing yield position, not idle capital. */
+    deployed: boolean;
   }[];
   summaryMarkdown: string;
 }
@@ -83,7 +88,7 @@ export async function runYieldScout(options: {
   const balancesList: YieldScoutReport['balances'] = [];
   let totalValueUsd = 0;
 
-  // Enrich native balance
+  // Enrich native balance (native gas token is idle capital by definition)
   const nativePrice = await getPrice(rawBalances.native.symbol);
   const nativeUsd = parseFloat(rawBalances.native.formatted) * nativePrice;
   totalValueUsd += nativeUsd;
@@ -92,25 +97,29 @@ export async function runYieldScout(options: {
     amount: rawBalances.native.formatted,
     usdValue: nativeUsd,
     address: rawBalances.native.address,
+    deployed: false,
   });
 
-  // Enrich token balances
+  // Enrich token balances and classify each as idle vs already-deployed
   for (const token of rawBalances.tokens) {
     const tokenPrice = await getPrice(token.symbol);
     const tokenUsd = parseFloat(token.formatted) * tokenPrice;
     totalValueUsd += tokenUsd;
+    const { deployed } = classifyPosition({ symbol: token.symbol, address: token.address });
     balancesList.push({
       symbol: token.symbol,
       amount: token.formatted,
       usdValue: tokenUsd,
       address: token.address,
+      deployed,
     });
   }
 
-  // Idle capital is defined as the total value of tokens sitting idle in the wallet
-  // (In a full protocol indexer, we would subtract tokens locked in LP/farming,
-  // but for a wallet balance scan, the scanned balance represents what is undeployed).
-  const idleCapitalUsd = totalValueUsd;
+  // Idle capital = holdings NOT already in a yield position. Tokens classified
+  // as deployed (LP/vault/lending receipts) are excluded — that's what makes
+  // "idle" actually mean idle, rather than the whole wallet.
+  const deployedCapitalUsd = balancesList.filter((b) => b.deployed).reduce((s, b) => s + b.usdValue, 0);
+  const idleCapitalUsd = balancesList.filter((b) => !b.deployed).reduce((s, b) => s + b.usdValue, 0);
 
   // 3. Discover yield opportunities on Pharos
   let rawPools: any[] = [];
@@ -180,7 +189,7 @@ export async function runYieldScout(options: {
 
   // 4. Generate summary report in markdown
   const holdingLines = balancesList
-    .map(b => `  ${b.symbol.padEnd(8)} ${parseFloat(b.amount).toFixed(4).padStart(8)}    ~$${Math.round(b.usdValue).toLocaleString()}`)
+    .map(b => `  ${b.symbol.padEnd(8)} ${parseFloat(b.amount).toFixed(4).padStart(8)}    ~$${Math.round(b.usdValue).toLocaleString()}${b.deployed ? '   [deployed]' : ''}`)
     .join('\n');
 
   const opportunityLines = rankedOpportunities
@@ -205,8 +214,9 @@ HOLDINGS
 ${holdingLines}
   Total           ~$${Math.round(totalValueUsd).toLocaleString()}
 
-IDLE CAPITAL
-  Total           ~$${Math.round(idleCapitalUsd).toLocaleString()}  (undeployed in wallet)
+CAPITAL BREAKDOWN
+  Idle            ~$${Math.round(idleCapitalUsd).toLocaleString()}  (undeployed, free to put to work)
+  Deployed        ~$${Math.round(deployedCapitalUsd).toLocaleString()}  (already in LP/vault/lending positions)
 
 YIELD OPPORTUNITIES  (ranked by source, APY, and wallet holdings)${provenanceNote}
 ${opportunityLines}
@@ -218,6 +228,7 @@ ${recommendation}
     walletAddress,
     totalValueUsd,
     idleCapitalUsd,
+    deployedCapitalUsd,
     topOpportunity,
     opportunities: rankedOpportunities,
     balances: balancesList,
