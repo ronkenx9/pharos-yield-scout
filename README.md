@@ -36,6 +36,13 @@ npm run scout -- --wallet 0xYourWallet --json     # agent-consumable JSON
 npm run mcp                                        # MCP server
 ```
 
+## Environment
+| Var | Required | Purpose |
+|---|---|---|
+| `PHAROS_RPC_URL` | no (defaults to testnet) | Pharos RPC endpoint |
+| `INCLUDE_SIMULATED_POOLS` | no (default `true`) | Set `false` to show live pools only |
+| `DEPLOYED_TOKEN_ADDRESSES` | no | Comma-separated addresses to treat as deployed positions |
+
 ## Network
 Pharos Atlantic testnet — chain id `688689`, RPC `https://atlantic.dplabs-internal.com`, explorer `https://atlantic.pharosscan.xyz`.
 
